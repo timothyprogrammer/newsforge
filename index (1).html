@@ -654,6 +654,7 @@ body {
   <!-- TABS -->
   <div class="tabs">
     <button class="tab active" data-tab="trending"><span class="tab-icon">📡</span>Trending</button>
+    <button class="tab" data-tab="clips"><span class="tab-icon">🔥</span>Viral Clips</button>
     <button class="tab" data-tab="script"><span class="tab-icon">🎬</span>Script</button>
     <button class="tab" data-tab="thumbnails"><span class="tab-icon">🖼️</span>Thumbnails</button>
     <button class="tab" data-tab="heygen"><span class="tab-icon">🤖</span>HeyGen</button>
@@ -667,6 +668,12 @@ body {
       <button class="btn btn-cyan btn-sm" onclick="loadNews()">⟳ Refresh</button>
     </div>
     <div class="trending-controls">
+      <select id="newsSource" onchange="loadNews()">
+        <option value="all">All Sources</option>
+        <option value="rss">RSS Feeds Only (Unlimited)</option>
+        <option value="gnews">GNews API</option>
+        <option value="newsapi">NewsAPI.org</option>
+      </select>
       <select id="newsCategory" onchange="loadNews()">
         <option value="general">General</option>
         <option value="world">World</option>
@@ -678,6 +685,71 @@ body {
     </div>
     <div id="newsGrid" class="news-grid">
       <div class="loading-overlay"><div class="spinner"></div> Loading headlines...</div>
+    </div>
+  </div>
+
+  <!-- ===== VIRAL CLIPS PANEL ===== -->
+  <div class="panel" id="panel-clips">
+    <div class="section-header">
+      <div class="section-title">🔥 Viral Clips from X</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-cyan btn-sm" onclick="showScrapeModal()">🔍 Scrape Now</button>
+        <button class="btn btn-ghost btn-sm" onclick="loadTweets()">⟳ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Scrape Controls -->
+    <div class="card" id="scrapeModal" style="margin-bottom:20px;">
+      <div class="card-header"><div class="card-title">Scrape X / Twitter</div></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Search Query</label>
+          <input type="text" class="form-input" id="scrapeQuery" placeholder="e.g. Trump, Iran, immigration, breaking news..." value="Trump">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select class="form-select" id="scrapeType">
+            <option value="Top">Top (Most Viral)</option>
+            <option value="Latest">Latest (Newest)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Pages to Scrape (each ~20 tweets)</label>
+          <select class="form-select" id="scrapePages">
+            <option value="1">1 page (~20 tweets)</option>
+            <option value="3" selected>3 pages (~60 tweets)</option>
+            <option value="5">5 pages (~100 tweets)</option>
+          </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;">
+          <button class="btn btn-red btn-full" onclick="scrapeTweets()">🚀 Scrape Tweets</button>
+        </div>
+      </div>
+      <div id="scrapeStatus" style="font-size:12px;color:var(--text-muted);margin-top:8px;"></div>
+    </div>
+
+    <!-- Filters -->
+    <div class="trending-controls" style="margin-bottom:16px;">
+      <select id="tweetSort" onchange="loadTweets()">
+        <option value="views">Sort by Views</option>
+        <option value="likes">Sort by Likes</option>
+        <option value="recent">Sort by Recent</option>
+      </select>
+      <select id="tweetFilter" onchange="loadTweets()">
+        <option value="all">All Tweets</option>
+        <option value="video">Video Only</option>
+        <option value="viral">50K+ Views</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="if(confirm('Clear all cached tweets?')){fetch(API('/api/tweets'),{method:'DELETE',headers:headers()}).then(()=>{toast('Tweets cleared','info');loadTweets();});}">🗑️ Clear Cache</button>
+    </div>
+
+    <div id="tweetsGrid" class="news-grid">
+      <div class="empty-state">
+        <div class="empty-state-icon">🐦</div>
+        <div class="empty-state-text">No tweets scraped yet.<br>Click "Scrape Now" to find viral clips, or add your Twitter API key in Settings.</div>
+      </div>
     </div>
   </div>
 
@@ -797,12 +869,28 @@ body {
     </div>
     <div class="settings-grid">
       <div class="setting-section card">
-        <h3>📰 News API</h3>
+        <h3>📰 News APIs</h3>
         <div class="form-group">
           <label>GNews API Key</label>
           <input type="text" class="form-input" id="settingsGnews" placeholder="Get free key at gnews.io">
         </div>
-        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Free tier: 100 requests/day. Get your key at <a href="https://gnews.io" target="_blank" style="color:var(--cyan);">gnews.io</a></p>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Free: 100 req/day, 10 articles each. <a href="https://gnews.io" target="_blank" style="color:var(--cyan);">gnews.io</a></p>
+        <div class="form-group">
+          <label>NewsAPI.org Key</label>
+          <input type="text" class="form-input" id="settingsNewsapi" placeholder="Get free key at newsapi.org">
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Free: 100 req/day, 50 articles each. <a href="https://newsapi.org" target="_blank" style="color:var(--cyan);">newsapi.org</a></p>
+        <p style="font-size:12px;color:var(--green);margin-bottom:0;">💡 RSS feeds (Fox, BBC, CNN, etc.) work with NO API key — always active!</p>
+      </div>
+
+      <div class="setting-section card">
+        <h3>🐦 Twitter / X Scraper</h3>
+        <div class="form-group">
+          <label>TwitterAPI.io Key</label>
+          <input type="text" class="form-input" id="settingsTwitter" placeholder="Get key at twitterapi.io">
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">~$0.15 per 1,000 tweets. $6 free credit on signup. <a href="https://twitterapi.io" target="_blank" style="color:var(--cyan);">twitterapi.io</a></p>
+        <p style="font-size:12px;color:var(--text-muted);">Auto-scraper runs every 2 hours for: Trump, Iran, immigration, Christians/Muslims, Congress, Supreme Court, breaking news</p>
       </div>
 
       <div class="setting-section card">
@@ -893,6 +981,7 @@ function doLogin() {
     loadSavedScripts();
     loadSettings();
     loadHeygenJobs();
+    loadTweets();
   })
   .catch(() => {
     document.getElementById('loginError').style.display = 'block';
@@ -934,9 +1023,10 @@ async function loadNews() {
   
   const category = document.getElementById('newsCategory').value;
   const search = document.getElementById('newsSearch').value.trim();
+  const source = document.getElementById('newsSource').value;
   
-  let url = `/api/news?category=${category}`;
-  if (search) url = `/api/news?q=${encodeURIComponent(search)}`;
+  let url = `/api/news?category=${category}&source=${source}`;
+  if (search) url = `/api/news?q=${encodeURIComponent(search)}&source=${source}`;
   
   try {
     const res = await fetch(API(url), { headers: headers() });
@@ -1310,9 +1400,11 @@ async function loadSettings() {
     const res = await fetch(API('/api/settings'), { headers: headers() });
     const s = await res.json();
     document.getElementById('settingsGnews').value = s.gnewsApiKey || '';
+    document.getElementById('settingsNewsapi').value = s.newsapiKey || '';
     document.getElementById('settingsHeygen').value = s.heygenApiKey || '';
     document.getElementById('settingsTgToken').value = s.telegramBotToken || '';
     document.getElementById('settingsTgChat').value = s.telegramChatId || '';
+    document.getElementById('settingsTwitter').value = s.twitterApiKey || '';
     document.getElementById('settingsPassword').value = s.dashboardPassword || '';
   } catch (e) {}
 }
@@ -1320,9 +1412,11 @@ async function loadSettings() {
 async function saveSettings() {
   const payload = {
     gnewsApiKey: document.getElementById('settingsGnews').value,
+    newsapiKey: document.getElementById('settingsNewsapi').value,
     heygenApiKey: document.getElementById('settingsHeygen').value,
     telegramBotToken: document.getElementById('settingsTgToken').value,
     telegramChatId: document.getElementById('settingsTgChat').value,
+    twitterApiKey: document.getElementById('settingsTwitter').value,
     dashboardPassword: document.getElementById('settingsPassword').value
   };
   
@@ -1356,6 +1450,91 @@ async function testTelegram() {
     else toast(data.error || 'Failed', 'error');
   } catch (e) {
     toast('Failed to send test notification', 'error');
+  }
+}
+
+// ========== TWEETS / VIRAL CLIPS ==========
+function showScrapeModal() {
+  document.getElementById('scrapeModal').style.display = 'block';
+}
+
+async function scrapeTweets() {
+  const query = document.getElementById('scrapeQuery').value.trim();
+  const queryType = document.getElementById('scrapeType').value;
+  const pages = parseInt(document.getElementById('scrapePages').value);
+  const statusEl = document.getElementById('scrapeStatus');
+  
+  if (!query) { toast('Enter a search query', 'error'); return; }
+  
+  statusEl.innerHTML = '<div class="spinner" style="display:inline-block;width:14px;height:14px;margin-right:6px;vertical-align:middle;"></div> Scraping X for "' + escHtml(query) + '"... This may take a moment.';
+  
+  try {
+    const res = await fetch(API('/api/tweets/scrape'), {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ query, queryType, pages })
+    });
+    const data = await res.json();
+    
+    if (data.error) {
+      statusEl.textContent = '❌ ' + data.error;
+      toast(data.error, 'error');
+    } else {
+      statusEl.textContent = `✅ Scraped ${data.scraped} tweets (${data.newTweets} new). Total cached: ${data.total}`;
+      toast(`Found ${data.scraped} tweets!`, 'success');
+      loadTweets();
+    }
+  } catch (e) {
+    statusEl.textContent = '❌ Scrape failed: ' + e.message;
+    toast('Scrape failed', 'error');
+  }
+}
+
+async function loadTweets() {
+  const grid = document.getElementById('tweetsGrid');
+  const sort = document.getElementById('tweetSort')?.value || 'views';
+  const filter = document.getElementById('tweetFilter')?.value || 'all';
+  
+  let url = `/api/tweets?sort=${sort}`;
+  if (filter === 'video') url += '&hasVideo=true';
+  if (filter === 'viral') url += '&minViews=50000';
+  
+  try {
+    const res = await fetch(API(url), { headers: headers() });
+    const data = await res.json();
+    const tweets = data.tweets || [];
+    
+    if (tweets.length === 0) {
+      grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🐦</div><div class="empty-state-text">No tweets found.<br>Click "Scrape Now" to find viral clips from X.</div></div>';
+      return;
+    }
+    
+    grid.innerHTML = tweets.map(t => {
+      const viewsFormatted = t.views >= 1000000 ? (t.views / 1000000).toFixed(1) + 'M' : t.views >= 1000 ? (t.views / 1000).toFixed(1) + 'K' : t.views;
+      const likesFormatted = t.likes >= 1000 ? (t.likes / 1000).toFixed(1) + 'K' : t.likes;
+      
+      return `
+        <div class="card">
+          ${t.mediaUrl ? `<img src="${t.mediaUrl}" class="news-card-img" onerror="this.style.display='none'" alt="">` : ''}
+          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+            ${t.hasVideo ? '<span class="badge badge-live">🎥 VIDEO</span>' : ''}
+            <span class="badge badge-source">👁 ${viewsFormatted} views</span>
+            <span class="badge" style="background:#ff2d5515;color:var(--red);">❤️ ${likesFormatted}</span>
+          </div>
+          <div class="news-title" style="font-size:14px;">${escHtml(t.text.substring(0, 200))}${t.text.length > 200 ? '...' : ''}</div>
+          <div class="card-meta" style="margin:8px 0;">@${escHtml(t.author)} · ${timeAgo(t.createdAt)}</div>
+          <div class="news-footer">
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-cyan btn-sm" onclick="useTopicForScript('${escAttr(t.text.substring(0, 100))}')">Use Topic</button>
+              <a href="${t.url}" target="_blank" class="btn btn-ghost btn-sm">View on X ↗</a>
+              ${t.videoUrl ? `<a href="${t.videoUrl}" target="_blank" class="btn btn-red btn-sm">⬇ Video</a>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Failed to load tweets.</div></div>';
   }
 }
 
